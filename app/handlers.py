@@ -12,10 +12,13 @@ import cv2
 import face_recognition
 from bot_dp import bot
 import app.database.requests as rq
+import json
+
 
 my_photos = "./photos"
 router = Router()
-
+file_name = "faces.json"
+cache = dict()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
@@ -35,6 +38,13 @@ async def cmd_help(message: Message):
 @router.message(F.photo)
 async def send_photos(message: Message):
     global my_photos
+    global cache
+    try:
+        with open(file_name, 'r', encoding='utf-8') as f:
+            cache = json.load(f)
+    except:
+        cache = dict()
+
     start = time.time()
     if await rq.get_is_processing(message.from_user.id):
         await message.answer('Я уже ищу ваши фотографии. Просьба не отправлять ничего, пока идёт поиск.')
@@ -55,6 +65,7 @@ async def send_photos(message: Message):
     await rq.set_is_processing(message.from_user.id, False)
     stop = time.time()
     print(stop-start)
+
 
 
 @router.message()
@@ -84,12 +95,17 @@ def comparison(image, encoding_face2compare, encoding_face):
 
 def face_encoding(args):
     start = time.time()
-    encoding_face2compare, photo = args[0], args[1]
-    face = face_recognition.load_image_file(photo)
-    face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-    encoding_face = face_recognition.face_encodings(face)
+    encoding_face2compare, photo, cache = args[0], args[1], args[2]
+    if photo in cache:
+        encoding_face = cache[photo]
+        print(f"From cache: {photo}")
+    else:
+        face = face_recognition.load_image_file(photo)
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        encoding_face = face_recognition.face_encodings(face)
+        print(f"Not in cache: {photo}")
     print(f"{photo} - processed in {time.time()-start}", end=' ')
-    return comparison(photo, encoding_face2compare, encoding_face)
+    return (photo, encoding_face)
 
 
 async def main_func(image):
@@ -100,13 +116,19 @@ async def main_func(image):
     encoding_face2compare = face_recognition.face_encodings(face2compare)[0]
     with ProcessPoolExecutor() as process_pool:
         loop = asyncio.get_running_loop()
-        args = [(encoding_face2compare, my_photos + '/' + photo) for photo in photos]
+        args = [(encoding_face2compare, my_photos + '/' + photo, cache) for photo in photos]
         calls = [partial(face_encoding, arg) for arg in args]
         call_coros = []
         for call in calls:
             call_coros.append(loop.run_in_executor(process_pool, call))
         faces = await asyncio.gather(*call_coros)
-    results = [result for result in faces if result is not None]
+    pre_results = [comparison(photo, encoding_face2compare, encoding_face) for photo, encoding_face in faces]
+    for face in faces:
+        if not face[0] in cache:
+            cache[face[0]] = [enc.tolist() for enc in face[1]]
+    with open(file_name, 'w', encoding='utf-8') as f:
+        json.dump(cache, f, ensure_ascii=False, indent=4)
+    results = [result for result in pre_results if result is not None]
     stop = time.time()
     print(f"Время обработки: {stop-start} сек")
     return results
