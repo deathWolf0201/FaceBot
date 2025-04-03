@@ -1,0 +1,7 @@
+photos/
+__pycache__/
+.idea/
+venv/
+.git/
+.dockerignore
+.gitignore
