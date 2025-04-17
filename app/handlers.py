@@ -126,6 +126,12 @@ async def main_func(image):
     for face in faces:
         if not face[0] in cache:
             cache[face[0]] = [enc.tolist() for enc in face[1]]
+    existing_files = set(['./photos/'+x for x in os.listdir(my_photos)])
+    print(existing_files)
+    keys_to_remove = [key for key in cache if key not in existing_files]
+    print(keys_to_remove)
+    for key in keys_to_remove:
+        del cache[key]
     with open(file_name, 'w', encoding='utf-8') as f:
         json.dump(cache, f, ensure_ascii=False, indent=4)
     results = [result for result in pre_results if result is not None]
