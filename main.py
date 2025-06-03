@@ -7,9 +7,13 @@ from app.database.models import async_main
 
 
 async def main():
-    await async_main()
-    dp.include_router(router)
-    await dp.start_polling(bot)
+    print('Бот запущен')
+    try:
+        await async_main()
+        dp.include_router(router)
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == '__main__':

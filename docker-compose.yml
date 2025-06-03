@@ -2,6 +2,6 @@ version: '3.8'
 
 services:
   app:
-    image: antman2006/face-bot:1.1
+    image: antman2006/face-bot:1.2
     volumes:
       - ./photos:/app/photos
